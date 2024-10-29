@@ -28,20 +28,7 @@ data("movie_review")
 
 # Data description
 
-```{r}
-#| label: eda wordcloud
-#| warning: false
-
-# TODO: Style histogram
-movie_review %>% 
-  mutate(length = str_count(review)) %>% 
-  ggplot(aes(x = length)) +
-  geom_histogram(bins = 50) +
-  labs(x = "Number of words",
-       y = "Frequency")
-```
-
-The histogram shows the distribution of the review lengths. Most reviews seem to be on the shorter side, with less than 2500 words, but the distribution is majorly skewed. Upon further inspection, there seem to be a few data points that have such a big length, they don't show up on the histogram. One of these datapoints is the longest review, that has a length of 13708 words. Overall, reviews also don't appear to be shorter than roughly 1000 words. 
+To start exploring the data, a word cloud can be used to visualize the most common words in the review.
 
 ```{r}
 #| label: eda wordcloud
@@ -55,7 +42,8 @@ movie_review %$% wordcloud(review,
 
 
 ```
-In the word cloud stop words like "the" and "also" are over represented, suggesting their removal would be beneficial as it would reduce dimentionality without impacting the clustering. That is because stop words are so frequent and carry relatively little meaning with them. Additionally, the words "movie" and "film" should also be removed for similar reasons. As all of the reviews concern this topic it is very likely they all mention either "movie" or "film" and thus, the words occurrence likely do not reflect any grouping within the reviews. Additionally, various forms of words "character" and "characters" 
+
+In the word cloud stop words like "the" and "also" are over represented, suggesting their removal would be beneficial as it would reduce dimensionality without impacting the clustering. That is because stop words are so frequent and carry relatively little meaning with them. Additionally, the words "movie" and "film" should also be removed for similar reasons. As all of the reviews concern this topic it is very likely they all mention either "movie" or "film" and thus, the words occurrence likely do not reflect any grouping within the reviews. Additionally, various forms of words "character" and "characters" 
 
 ```{r}
 rows <- nrow(movie_review)
@@ -63,7 +51,20 @@ rows <- nrow(movie_review)
 
 There is `r rows` reviews.
 
-Histogram of the word count of reviews 
+```{r}
+#| label: eda histogram
+#| warning: false
+
+# TODO: Style histogram
+movie_review %>% 
+  mutate(length = str_count(review)) %>% 
+  ggplot(aes(x = length)) +
+  geom_histogram(bins = 50) +
+  labs(x = "Number of words",
+       y = "Frequency")
+```
+
+The histogram shows the distribution of the review lengths. Most reviews seem to be on the shorter side, with less than 2500 words, but the distribution is majorly skewed. Upon further inspection, there seem to be a few data points that have such a big length, they don't show up on the histogram. One of these datapoints is the longest review, that has a length of 13708 words. Overall, reviews also don't appear to be shorter than roughly 1000 words. 
 
 # Text pre-processing
 
