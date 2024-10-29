@@ -15,6 +15,7 @@ This is a quarto file. If you open its [source](report_template.qmd) in RStudio,
 library(text2vec)
 library(wordcloud)
 library(magrittr)
+library(tidyverse)
 
 # additional packages here
 ```
@@ -29,10 +30,23 @@ data("movie_review")
 
 # Data description
 
-Describe the data and use a visualization to support your story. (approx. one or two paragraphs)
+```{r}
+#| label: eda wordcloud
+#| warning: false
+
+# TODO: Style histogram
+movie_review %>% 
+  mutate(length = str_count(review)) %>% 
+  ggplot(aes(x = length)) +
+  geom_histogram(bins = 50) +
+  labs(x = "Number of words",
+       y = "Frequency")
+```
+
+The histogram shows the distribution of the review lengths. Most reviews seem to be on the shorter side, with less than 2500 words, but the distribution is majorly skewed. Upon further inspection, there seem to be a few data points that have such a big length, they don't show up on the histogram. One of these datapoints is the longest review, that has a length of 13708 words. Overall, reviews also don't appear to be shorter than roughly 1000 words. 
 
 ```{r}
-#| label: eda visualization
+#| label: eda wordcloud
 #| warning: false
 
 # your R code to generate the plot here
