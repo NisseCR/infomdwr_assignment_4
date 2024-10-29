@@ -1,10 +1,3 @@
-:::{.callout-note}
-## Instruction
-
-This is a quarto file. If you open its [source](report_template.qmd) in RStudio, you will get all the features of this interactive notebook-style document. If you want to know more about how to use this file to generate a .html document to hand in, look at [the getting started guide](https://quarto.org/docs/get-started/hello/rstudio.html).
-
-(Delete this callout box before handing in your assignment.)
-:::
 
 ```{r}
 #| label: R packages
