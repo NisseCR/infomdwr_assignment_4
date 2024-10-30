@@ -21,7 +21,25 @@ data("movie_review")
 
 # Data description
 
-To start exploring the data, a word cloud can be used to visualize the most common words in the review.
+```{r}
+#| label: eda histogram
+#| warning: false
+
+# Number of reviews
+rows <- nrow(movie_review)
+
+# TODO: Style histogram
+movie_review %>% 
+  mutate(length = str_count(review)) %>% 
+  ggplot(aes(x = length)) +
+  geom_histogram(bins = 50) +
+  labs(x = "Number of words",
+       y = "Frequency")
+```
+
+The data consists of `r rows` reviews of various movies. The histogram shows the distribution of their lengths. Most reviews seem to be on the shorter side, with less than 2500 words, but the distribution is majorly skewed. Upon further inspection, there seem to be a few data points that have such a big length, they don't show up on the histogram. One of these datapoints is the longest review, that has a length of 13708 words. Overall, reviews also don't appear to be shorter than roughly 1000 words. 
+
+To start exploring the content of the reviews, a word cloud can be used to visualize the most common words in the corpus.
 
 ```{r}
 #| label: eda wordcloud
@@ -38,30 +56,72 @@ movie_review %$% wordcloud(review,
 
 In the word cloud stop words like "the" and "also" are over represented, suggesting their removal would be beneficial as it would reduce dimensionality without impacting the clustering. That is because stop words are so frequent and carry relatively little meaning with them. Additionally, the words "movie" and "film" should also be removed for similar reasons. As all of the reviews concern this topic it is very likely they all mention either "movie" or "film" and thus, the words occurrence likely do not reflect any grouping within the reviews. Additionally, various forms of words "character" and "characters" 
 
-```{r}
-rows <- nrow(movie_review)
-```
-
-There is `r rows` reviews.
-
-```{r}
-#| label: eda histogram
-#| warning: false
-
-# TODO: Style histogram
-movie_review %>% 
-  mutate(length = str_count(review)) %>% 
-  ggplot(aes(x = length)) +
-  geom_histogram(bins = 50) +
-  labs(x = "Number of words",
-       y = "Frequency")
-```
-
-The histogram shows the distribution of the review lengths. Most reviews seem to be on the shorter side, with less than 2500 words, but the distribution is majorly skewed. Upon further inspection, there seem to be a few data points that have such a big length, they don't show up on the histogram. One of these datapoints is the longest review, that has a length of 13708 words. Overall, reviews also don't appear to be shorter than roughly 1000 words. 
 
 # Text pre-processing
 
 Describe text pre-processing steps you have used (approx. one or two paragraphs)
+
+```{python}
+#| label: pre-processing
+
+from unidecode import unidecode
+import simplemma
+import string
+import stopwords
+
+""""
+
+    Conversion to lower case;
+    Removal of tokens with digits;
+    Removal of tokens with length less than 3 characters;
+    Removal of diacritical marks;
+    Spelling normalization;
+    Removal of stop words;
+    Stemming (for English).
+
+"""
+
+# from: https://pythonspot.com/nltk-stop-words/
+# import stopword from english
+stops = stopwords.words('english')
+
+
+def remove_interpunction_digits (text):
+    # remove interpunction
+    remove_digits = text.translate(str.maketrans('', '', string.punctuation))
+
+    # remove digits
+    result = remove_digits.translate(str.maketrans('', '', string.digits))
+    return result
+
+
+def lemmatisation (text_list):
+    lemmatized_list = [simplemma.lemmatize(token, lang='en', greedy=True) for token in text_list]
+    return lemmatized_list
+
+
+def prepare_data(stopwords: list, sentence: str) -> str:
+    # removal of punctuation and digits
+    # todo: maybe not digit removal look at eta.
+    sentence = remove_interpunction_digits(sentence).strip()
+
+    # removal of diacritical marks (weird characteres like é)
+    word_l_normalised = [unidecode(word) for word in sentence]
+
+    # todo: >>insert spellchecking
+
+    # lemmitise words
+    word_lemmitised_l = lemmatisation(word_l_normalised)
+
+    # stopword removal English
+    word_l_tokenized = [token for token in word_lemmitised_l if token in stopwords]
+
+    # join list into string with black spaces
+    tokens_str = ' '.join(word_l_tokenized)
+
+    return tokens_str
+```
+
 
 # Text representaion
 
