@@ -160,7 +160,11 @@ movie_review$kmean_10 <- kmean_10$cluster
 ```
 
 ```{r}
+gmm_5 <- Mclust(review_embeddings, G = 5)
+movie_review$gmm_5 <- as.factor(gmm_5$classification)
 
+gmm_10 <- Mclust(review_embeddings, G = 10)
+movie_review$gmm_10 <- as.factor(gmm_10$classification)
 ```
 
 
