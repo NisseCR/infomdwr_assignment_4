@@ -13,9 +13,8 @@ library(tm)
 library(textstem)
 library(cluster)
 library(factoextra)
+library(mclust)
 
-
-# additional packages here
 ```
 
 ```{r}
@@ -150,8 +149,7 @@ review_embeddings <- movie_review[, 5: ncol(movie_review)]
 get_kmean_cluster <- function(data, k){
   # K-means clustering
   kmeans_result <- kmeans(data, centers = k, nstart = 25, iter.max = 30)
-  
- return(kmeans_result)
+  return(kmeans_result)
 }
 
 kmean_5 <- get_kmean_cluster(review_embeddings, 5)
@@ -159,6 +157,10 @@ movie_review$kmean_5 <- kmean_5$cluster
 
 kmean_10 <- get_kmean_cluster(review_embeddings, 10)
 movie_review$kmean_10 <- kmean_10$cluster
+```
+
+```{r}
+
 ```
 
 
