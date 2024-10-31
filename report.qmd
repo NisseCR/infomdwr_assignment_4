@@ -195,6 +195,102 @@ movie_review$gmm_10 <- as.factor(gmm_10$classification)
 
 Describe how you compare the methods and why. (approx. two or three paragraphs)
 
+TODO: 
+- Visualization: gg grid the plots, so they print nicer
+- Visualization: change the colour pallete?
+- Visualization: describe what we can see (ex gmm10 clearly shows that only 4 big clusters were detected, which is possible since it allows for varying cluster sizes)
+
+- bootstrap stability for GMM - how to do it
+- add Silhouette indecies for each
+
+- present all indicies in a table
+- describe the table 
+
+
+Visual inspection of clusters: 
+
+```{r}
+#| label: Visual inspection with Umap
+#| warning: false
+
+library(ggplot2)
+library(ggrepel)
+library(plotly)
+library(umap)
+
+vizualization <- umap(review_embeddings, n_neighbors = 15, n_threads = 2)
+
+df  <- data.frame(word = rownames(review_embeddings), 
+                  xpos = gsub(".+//", "", rownames(review_embeddings)), 
+                  x = vizualization$layout[, 1], y = vizualization$layout[, 2], 
+                  stringsAsFactors = FALSE)
+
+plot_ly(df, x = ~x, y = ~y, type = "scatter", color = ~movie_review$kmean_5) %>%
+  layout(title = "Umap visuzalization of movie reviews with 5 kmeans clusters")
+plot_ly(df, x = ~x, y = ~y, type = "scatter", color = ~movie_review$kmean_10) %>%
+  layout(title = "Umap visuzalization of movie reviews with 10 kmeans clusters")
+plot_ly(df, x = ~x, y = ~y, type = "scatter", color = ~movie_review$gmm_10) %>%
+  layout(title = "Umap visuzalization of movie reviews with 5 gmm clusters")
+plot_ly(df, x = ~x, y = ~y, type = "scatter", color = ~movie_review$gmm_5) %>%
+  layout(title = "Umap visuzalization of movie reviews with 10 kmeans clusters")
+
+movie_review <- movie_review %>%
+  mutate(
+    sentiment = as.factor(sentiment)
+  ) 
+plot_ly(df, x = ~x, y = ~y, type = "scatter", color = ~movie_review$sentiment) %>%
+  layout(title = "Sentiment of Reviews")
+```
+
+Davies-Bouldin's index - measure of cluster separation
+
+"The Davies-Bouldin Index is a validation metric that is used to evaluate clustering models. It is calculated as the average similarity measure of each cluster with the cluster most similar to it. In this context, similarity is defined as the ratio between inter-cluster and intra-cluster distances. As such, this index ranks well-separated clusters with less dispersion as having a better score." link: https://www.geeksforgeeks.org/davies-bouldin-index/
+
+GMM 5 performes by far the best. 
+
+```{r}
+#| label: Davies-Bouldin's index
+#| #| warning: false
+
+library(clusterSim)
+DB.index <- function(clusters){
+  ind <- index.DB(review_embeddings, as.numeric(clusters), d=NULL, centrotypes="centroids", p=2, q=2)
+  return(ind$DB)
+}
+
+DB.index(clusters = movie_review$kmean_5)
+DB.index(clusters = movie_review$kmean_10)
+DB.index(clusters = movie_review$gmm_5)
+DB.index(clusters = movie_review$gmm_10)
+
+```
+
+
+
+ 
+How stable are the clusters: 
+
+```{r}
+#| label: bootstrap stability 
+library(fpc)
+boot_k5 <- clusterboot(review_embeddings, B = 100, clustermethod = kmeansCBI, k = 5, 
+                      count = FALSE)
+boot_k10 <- clusterboot(review_embeddings, B = 100, clustermethod = kmeansCBI, k = 10, 
+                      count = FALSE)
+
+# TODO: figure out how to run this for Mclust, the method is correct accrding to what I found 
+#boot_g5 <- clusterboot(review_embeddings, B = 100, clustermethod = mclustBIC, k = 5, 
+#                      count = FALSE, multipleboot=FALSE)
+
+#boot_g10<- clusterboot(review_embeddings, B = 100, clustermethod = mclustBIC, k = 5, 
+#                      count = FALSE, multipleboot=FALSE)
+
+boot_k5$bootmean
+```
+
+
+
+
 
 ```{r}
 #| label: table example
@@ -207,6 +303,7 @@ data.frame(
 ```
 
 Topic modeling may perform badly (ex overfitting) when used on short texts. Which is the case here. https://lazarinastoy.com/topic-modelling-limitations-short-text/ 
+
 
 # Team member contributions
 
