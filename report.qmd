@@ -12,12 +12,14 @@ library(tidyverse)
 library(tm)
 library(textstem)
 
+
 # additional packages here
 ```
 
 ```{r}
 #| label: data loading
 
+set.seed(123)
 data("movie_review")
 ```
 
@@ -72,6 +74,10 @@ corpus <- VCorpus(VectorSource(movie_review$review))
 # Cast all strings to lowercase
 corpus <- tm_map(corpus, content_transformer(tolower))
 
+# Stem and lemmatize
+corpus <- tm_map(corpus, content_transformer(lemmatize_strings))
+corpus <- tm_map(corpus, stemDocument)
+
 # Remove punctuation, white spaces and numbers
 corpus <- tm_map(corpus, content_transformer(removePunctuation))
 corpus <- tm_map(corpus, removeNumbers)
@@ -80,16 +86,34 @@ corpus <- tm_map(corpus, stripWhitespace)
 # Remove stopwords and other unnecessary words found in EDA
 custom_stopwords <- c(stopwords("english"), "movie", "film")
 corpus <- tm_map(corpus, content_transformer(removeWords), custom_stopwords)
-
-# Stem and lemmatize
-corpus <- tm_map(corpus, content_transformer(lemmatize_strings))
-corpus <- tm_map(corpus, stemDocument)
 ```
 
 
 # Text representaion
 
 Briefly describe your text representation method. (approx. one or two paragraphs)
+
+```{r}
+# Tokinize the corpus
+corpus_list <- sapply(corpus, as.character)
+tokens <- word_tokenizer(corpus_list)
+iterator <- itoken(tokens, progressbar = FALSE)
+
+# Create vocabulary 
+vocabulary <- create_vocabulary(iterator) %>% 
+  prune_vocabulary(term_count_min = 5)
+
+# Create a term co-occurence matrix
+vectorizer <- vocab_vectorizer(vocabulary)
+termoc_matrix <- create_tcm(iterator, vectorizer, skip_grams_window = 5)
+```
+
+```{r}
+# Create the embeddings based on a GlobalVectors model
+glove_model <- GlobalVectors$new(rank = 50, x_max = 10)
+glove_embedding <- glove_model$fit_transform(termoc_matrix, n_iter = 25)
+``` 
+
 
 # Text clustering
 
