@@ -9,6 +9,8 @@ library(text2vec)
 library(wordcloud)
 library(magrittr)
 library(tidyverse)
+library(tm)
+library(textstem)
 
 # additional packages here
 ```
@@ -61,65 +63,27 @@ In the word cloud stop words like "the" and "also" are over represented, suggest
 
 Describe text pre-processing steps you have used (approx. one or two paragraphs)
 
-```{python}
+```{r}
 #| label: pre-processing
 
-from unidecode import unidecode
-import simplemma
-import string
-import stopwords
+# Create corpus
+corpus <- VCorpus(VectorSource(movie_review$review))
 
-""""
+# Cast all strings to lowercase
+corpus <- tm_map(corpus, content_transformer(tolower))
 
-    Conversion to lower case;
-    Removal of tokens with digits;
-    Removal of tokens with length less than 3 characters;
-    Removal of diacritical marks;
-    Spelling normalization;
-    Removal of stop words;
-    Stemming (for English).
+# Remove punctuation, white spaces and numbers
+corpus <- tm_map(corpus, content_transformer(removePunctuation))
+corpus <- tm_map(corpus, removeNumbers)
+corpus <- tm_map(corpus, stripWhitespace)
 
-"""
+# Remove stopwords and other unnecessary words found in EDA
+custom_stopwords <- c(stopwords("english"), "movie", "film")
+corpus <- tm_map(corpus, content_transformer(removeWords), custom_stopwords)
 
-# from: https://pythonspot.com/nltk-stop-words/
-# import stopword from english
-stops = stopwords.words('english')
-
-
-def remove_interpunction_digits (text):
-    # remove interpunction
-    remove_digits = text.translate(str.maketrans('', '', string.punctuation))
-
-    # remove digits
-    result = remove_digits.translate(str.maketrans('', '', string.digits))
-    return result
-
-
-def lemmatisation (text_list):
-    lemmatized_list = [simplemma.lemmatize(token, lang='en', greedy=True) for token in text_list]
-    return lemmatized_list
-
-
-def prepare_data(stopwords: list, sentence: str) -> str:
-    # removal of punctuation and digits
-    # todo: maybe not digit removal look at eta.
-    sentence = remove_interpunction_digits(sentence).strip()
-
-    # removal of diacritical marks (weird characteres like é)
-    word_l_normalised = [unidecode(word) for word in sentence]
-
-    # todo: >>insert spellchecking
-
-    # lemmitise words
-    word_lemmitised_l = lemmatisation(word_l_normalised)
-
-    # stopword removal English
-    word_l_tokenized = [token for token in word_lemmitised_l if token in stopwords]
-
-    # join list into string with black spaces
-    tokens_str = ' '.join(word_l_tokenized)
-
-    return tokens_str
+# Stem and lemmatize
+corpus <- tm_map(corpus, content_transformer(lemmatize_strings))
+corpus <- tm_map(corpus, stemDocument)
 ```
 
 
