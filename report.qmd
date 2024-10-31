@@ -68,6 +68,7 @@ Describe text pre-processing steps you have used (approx. one or two paragraphs)
 
 ```{r}
 #| label: pre-processing
+#| warning: false
 
 preprocess <- function(review){
   # Cast all strings to lowercase
@@ -99,8 +100,10 @@ movie_review$clean <- preprocess(movie_review$review)
 Briefly describe your text representation method. (approx. one or two paragraphs)
 
 ```{r}
-# Tokinize the corpus
+#| label: tokinzation
+#| warning: false
 
+# Tokinize the corpus
 tokens <- word_tokenizer(movie_review$clean)
 iterator <- itoken(tokens, progressbar = FALSE)
 
@@ -114,12 +117,19 @@ termoc_matrix <- create_tcm(iterator, vectorizer, skip_grams_window = 5)
 ```
 
 ```{r}
-# Create the embeddings based on a GlobalVectors model
+#| label: embedding_model
+#| warning: false
+
+# Create the embeddings, with 50 dimensions 
 glove_model <- GlobalVectors$new(rank = 50, x_max = 10)
 glove_embedding <- glove_model$fit_transform(termoc_matrix, n_iter = 20)
 ``` 
 
 ```{r}
+#| label: average_embeddings
+#| warning: false
+
+# Custom function to get the average of each word embedding in a review
 embed_review <- function(review, embeddings){
   review_words <- unlist(strsplit(review, "\\W+"))
   relevant_embeds <- embeddings[review_words, , drop = FALSE]
@@ -129,9 +139,11 @@ embed_review <- function(review, embeddings){
   return(colMeans(relevant_embeds, na.rm = TRUE))
 }
 
+# Create dataframe for existing word embeddings instead of matrix
 embedding_matrix <- as.data.frame(glove_embedding)
 row.names(embedding_matrix) <- rownames(glove_embedding)
 
+# Apply the custom function on every embedding dimension in a row
 movie_review <- movie_review %>%
   rowwise() %>%
   mutate(average_embedding = list(embed_review(review, embedding_matrix))) %>%
@@ -144,25 +156,36 @@ movie_review <- movie_review %>%
 Briefly describe which models you compare to perform clustering. (approx. two or three paragraphs)
 
 ```{r}
+#| label: kmean_clustering
+#| warning: false
+
+# Separate features from the dataframe
 review_embeddings <- movie_review[, 5: ncol(movie_review)]
 
+# Custom function to apply k_mean clustering qith custom k
 get_kmean_cluster <- function(data, k){
-  # K-means clustering
   kmeans_result <- kmeans(data, centers = k, nstart = 25, iter.max = 30)
   return(kmeans_result)
 }
 
+# Create clusters for k = 5
 kmean_5 <- get_kmean_cluster(review_embeddings, 5)
 movie_review$kmean_5 <- kmean_5$cluster
 
+# Create clusters for k = 10
 kmean_10 <- get_kmean_cluster(review_embeddings, 10)
 movie_review$kmean_10 <- kmean_10$cluster
 ```
 
 ```{r}
+#| label: gmm_clustering
+#| warning: false
+
+# Create gmm clusters with k = 5
 gmm_5 <- Mclust(review_embeddings, G = 5)
 movie_review$gmm_5 <- as.factor(gmm_5$classification)
 
+# Create gmm clusters with k = 10
 gmm_10 <- Mclust(review_embeddings, G = 10)
 movie_review$gmm_10 <- as.factor(gmm_10$classification)
 ```
