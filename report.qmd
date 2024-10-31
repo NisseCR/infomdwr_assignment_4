@@ -11,6 +11,8 @@ library(magrittr)
 library(tidyverse)
 library(tm)
 library(textstem)
+library(cluster)
+library(factoextra)
 
 
 # additional packages here
@@ -68,24 +70,28 @@ Describe text pre-processing steps you have used (approx. one or two paragraphs)
 ```{r}
 #| label: pre-processing
 
-# Create corpus
-corpus <- VCorpus(VectorSource(movie_review$review))
+preprocess <- function(review){
+  # Cast all strings to lowercase
+  review <- tolower(review)
+  
+  #Stem and lemmatize
+  review <- lemmatize_strings(review)
+  review <- stemDocument(review)
+  
+   # Remove punctuation, numbers, and extra whitespace
+  review <- gsub("[[:punct:]]", "", review) 
+  review <- gsub("[0-9]", "", review)       
+  review <- gsub("\\s+", " ", review)        
+  review <- str_squish(review)                    
+  
+  # Remove stopwords and custom words
+  custom_stopwords <- c(stopwords("english"), "movie", "film")
+  review <- removeWords(review, custom_stopwords)
+  
+  return(review)
+}
 
-# Cast all strings to lowercase
-corpus <- tm_map(corpus, content_transformer(tolower))
-
-# Stem and lemmatize
-corpus <- tm_map(corpus, content_transformer(lemmatize_strings))
-corpus <- tm_map(corpus, stemDocument)
-
-# Remove punctuation, white spaces and numbers
-corpus <- tm_map(corpus, content_transformer(removePunctuation))
-corpus <- tm_map(corpus, removeNumbers)
-corpus <- tm_map(corpus, stripWhitespace)
-
-# Remove stopwords and other unnecessary words found in EDA
-custom_stopwords <- c(stopwords("english"), "movie", "film")
-corpus <- tm_map(corpus, content_transformer(removeWords), custom_stopwords)
+movie_review$clean <- preprocess(movie_review$review)
 ```
 
 
@@ -95,8 +101,8 @@ Briefly describe your text representation method. (approx. one or two paragraphs
 
 ```{r}
 # Tokinize the corpus
-corpus_list <- sapply(corpus, as.character)
-tokens <- word_tokenizer(corpus_list)
+
+tokens <- word_tokenizer(movie_review$clean)
 iterator <- itoken(tokens, progressbar = FALSE)
 
 # Create vocabulary 
@@ -111,13 +117,50 @@ termoc_matrix <- create_tcm(iterator, vectorizer, skip_grams_window = 5)
 ```{r}
 # Create the embeddings based on a GlobalVectors model
 glove_model <- GlobalVectors$new(rank = 50, x_max = 10)
-glove_embedding <- glove_model$fit_transform(termoc_matrix, n_iter = 25)
+glove_embedding <- glove_model$fit_transform(termoc_matrix, n_iter = 20)
 ``` 
+
+```{r}
+embed_review <- function(review, embeddings){
+  review_words <- unlist(strsplit(review, "\\W+"))
+  relevant_embeds <- embeddings[review_words, , drop = FALSE]
+  if(nrow(relevant_embeds) == 0){
+    return(rep(NA, ncol(embeddings)))
+  }
+  return(colMeans(relevant_embeds, na.rm = TRUE))
+}
+
+embedding_matrix <- as.data.frame(glove_embedding)
+row.names(embedding_matrix) <- rownames(glove_embedding)
+
+movie_review <- movie_review %>%
+  rowwise() %>%
+  mutate(average_embedding = list(embed_review(review, embedding_matrix))) %>%
+  unnest_wider(average_embedding, names_sep = "_")
+```
 
 
 # Text clustering
 
 Briefly describe which models you compare to perform clustering. (approx. two or three paragraphs)
+
+```{r}
+review_embeddings <- movie_review[, 5: ncol(movie_review)]
+
+get_kmean_cluster <- function(data, k){
+  # K-means clustering
+  kmeans_result <- kmeans(data, centers = k, nstart = 25, iter.max = 30)
+  
+ return(kmeans_result)
+}
+
+kmean_5 <- get_kmean_cluster(review_embeddings, 5)
+movie_review$kmean_5 <- kmean_5$cluster
+
+kmean_10 <- get_kmean_cluster(review_embeddings, 10)
+movie_review$kmean_10 <- kmean_10$cluster
+```
+
 
 # Evaluation & model comparison
 
