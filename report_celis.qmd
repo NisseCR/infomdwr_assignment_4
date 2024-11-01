@@ -1,0 +1,421 @@
+
+```{r}
+#| label: R packages
+#| echo: false
+#| warning: false
+#| message: false
+
+library(text2vec)
+library(wordcloud)
+library(magrittr)
+library(tidyverse)
+library(tm)
+library(textstem)
+library(cluster)
+library(factoextra)
+library(mclust)
+
+```
+
+```{r}
+#| label: data loading
+
+set.seed(123)
+data("movie_review")
+```
+
+# Data description
+
+```{r}
+#| label: eda histogram
+#| warning: false
+
+# Number of reviews
+rows <- nrow(movie_review)
+
+# TODO: Style histogram
+movie_review %>% 
+  mutate(length = str_count(review)) %>% 
+  ggplot(aes(x = length)) +
+  geom_histogram(bins = 50) +
+  labs(x = "Number of words",
+       y = "Frequency",
+       title = 'Word length of movie reviews') +
+  theme_minimal()
+```
+
+The data consists of `r rows` reviews of various movies. The histogram shows the distribution of their lengths. Most reviews seem to be on the shorter side, with less than 2500 words, but the distribution is majorly skewed. Upon further inspection, there seem to be a few data points that have such a big length, they don't show up on the histogram. One of these datapoints is the longest review, that has a length of 13708 words. Overall, reviews also don't appear to be shorter than roughly 1000 words. 
+
+To start exploring the content of the reviews, a word cloud can be used to visualize the most common words in the corpus.
+
+```{r}
+#| label: eda wordcloud
+#| warning: false
+
+movie_review %$% wordcloud(review, 
+                           min.freq = 10, 
+                           max.words = 50, 
+                           random.order = FALSE,
+                           colors = brewer.pal(8, "Dark2"))
+
+
+```
+
+In the word cloud stop words like "the" and "also" are over represented, suggesting their removal would be beneficial as it would reduce dimensionality without impacting the clustering. That is because stop words are so frequent and carry relatively little meaning with them. Additionally, the words "movie" and "film" should also be removed for similar reasons. As all of the reviews concern this topic it is very likely they all mention either "movie" or "film" and thus, the words occurrence likely do not reflect any grouping within the reviews. Additionally, various forms of words "character" and "characters" 
+
+
+# Text pre-processing
+
+Describe text pre-processing steps you have used (approx. one or two paragraphs)
+
+```{r}
+#| label: pre-processing
+#| warning: false
+
+preprocess <- function(review){
+  # Cast all strings to lowercase
+  review <- tolower(review)
+  
+  # Remove punctuation, numbers, and extra whitespace
+  review <- gsub("[[:punct:]]", "", review) 
+  review <- gsub("[0-9]", "", review)       
+  review <- gsub("\\s+", " ", review)        
+  review <- str_squish(review)  
+  
+  #Stem and lemmatize
+  review <- lemmatize_strings(review)
+  review <- stemDocument(review)
+  
+  # Remove stopwords and custom words
+  custom_stopwords <- c(stopwords("english"), "movie", "film")
+  review <- removeWords(review, custom_stopwords)
+  
+  return(review)
+}
+
+movie_review$clean <- preprocess(movie_review$review)
+```
+
+
+# Text representaion
+
+Briefly describe your text representation method. (approx. one or two paragraphs)
+
+```{r}
+#| label: tokinzation
+#| warning: false
+
+# Tokenize the corpus
+tokens <- word_tokenizer(movie_review$clean)
+iterator <- itoken(tokens, progressbar = FALSE)
+
+# Create vocabulary 
+vocabulary <- create_vocabulary(iterator) %>% 
+  prune_vocabulary(term_count_min = 5)
+
+# Create a term co-occurrence matrix
+vectorizer <- vocab_vectorizer(vocabulary)
+termoc_matrix <- create_tcm(iterator, vectorizer, skip_grams_window = 5)
+```
+
+```{r}
+#| label: embedding_model
+#| warning: false
+
+# Create the embeddings, with 50 dimensions 
+glove_model <- GlobalVectors$new(rank = 50, x_max = 10)
+glove_embedding <- glove_model$fit_transform(termoc_matrix, n_iter = 20)
+``` 
+
+```{r}
+#| label: average_embeddings
+#| warning: false
+
+# Custom function to get the average of each word embedding in a review
+embed_review <- function(review, embeddings){
+  review_words <- unlist(strsplit(review, "\\W+"))
+  relevant_embeds <- embeddings[review_words, , drop = FALSE]
+  if(nrow(relevant_embeds) == 0){
+    return(rep(NA, ncol(embeddings)))
+  }
+  return(colMeans(relevant_embeds, na.rm = TRUE))
+}
+
+# Create dataframe for existing word embeddings instead of matrix
+embedding_matrix <- as.data.frame(glove_embedding)
+row.names(embedding_matrix) <- rownames(glove_embedding)
+
+# Apply the custom function on every embedding dimension in a row
+movie_review <- movie_review %>%
+  rowwise() %>%
+  mutate(average_embedding = list(embed_review(review, embedding_matrix))) %>%
+  unnest_wider(average_embedding, names_sep = "_")
+```
+
+
+# Text clustering
+
+Briefly describe which models you compare to perform clustering. (approx. two or three paragraphs)
+The movie reviews will be clustered with two different methods: k-means and Gaussian mixture models (GMM). 
+The former performs a hard clustering with 5 and 10 clusters. The point in the cluster will be assigned
+k points at random. The mean of these clusters will be calculated and the points will be reassigned to 
+the clusters which is closest to the calculated mean. This will result in approximately even area within the clusters. 
+Therefore, it works with spherical shaped data, which we do, but it is sensitive to outliers. The data has a few outliers. 
+However, it is worthwhile performing k-means clustering to get equivalent clusters.
+  On the other hand, the GMM is another approach to cluster the data. This method assumes that the data is the sum of 
+multiple Gaussian distributions. It is therefore considered the more elaborate version of K-means. This methods allows 
+different sizes of clusters, more than K-means and it used to deal with multidimensional data, which suits this dataset. 
+However, this could lead to isolated clusters with but a few points in them. 
+  These methods have their up and down sides. Thus it is nessesary to evaluate the distributions of the clusters, their coherency, and their stability. 
+
+```{r}
+#| label: kmean_clustering
+#| warning: false
+
+# Separate features from the dataframe
+review_embeddings <- movie_review[, 5: ncol(movie_review)]
+
+# Custom function to apply k_mean clustering qith custom k
+get_kmean_cluster <- function(data, k){
+  kmeans_result <- kmeans(data, centers = k, nstart = 25, iter.max = 30)
+  return(kmeans_result)
+}
+
+# Create clusters for k = 5
+kmean_5 <- get_kmean_cluster(review_embeddings, 5)
+movie_review$kmean_5 <- kmean_5$cluster
+
+# Create clusters for k = 10
+kmean_10 <- get_kmean_cluster(review_embeddings, 10)
+movie_review$kmean_10 <- kmean_10$cluster
+```
+
+```{r}
+#| label: gmm_clustering
+#| warning: false
+
+# Create gmm clusters with k = 5
+gmm_5 <- Mclust(review_embeddings, G = 5)
+movie_review$gmm_5 <- as.factor(gmm_5$classification)
+
+# Create gmm clusters with k = 10
+gmm_10 <- Mclust(review_embeddings, G = 10)
+movie_review$gmm_10 <- as.factor(gmm_10$classification)
+```
+
+
+# Evaluation & model comparison
+
+Describe how you compare the methods and why. (approx. two or three paragraphs)
+
+TODO: 
+- Visualization: describe what we can see (ex gmm10 clearly shows that only 4 big clusters were detected, which is possible since it allows for varying cluster sizes)
+
+- bootstrap stability for GMM - how to do it
+- add Silhouette indecies for each
+
+- present all indicies in a table
+- describe the table 
+
+
+Visual inspection of clusters: 
+
+```{r}
+#| label: Visual inspection with Umap
+#| warning: false
+
+library(ggplot2)
+library(ggrepel)
+library(plotly)
+library(umap)
+
+vizualization <- umap(review_embeddings, n_neighbors = 15, n_threads = 2)
+
+df  <- data.frame(word = rownames(review_embeddings), 
+                  xpos = gsub(".+//", "", rownames(review_embeddings)), 
+                  x = vizualization$layout[, 1], y = vizualization$layout[, 2], 
+                  stringsAsFactors = FALSE)
+
+# change the class types of sentiment, and kmeans clusters
+movie_review <- movie_review %>%
+  mutate(
+    sentiment = as.factor(sentiment),
+    kmean_10 = as.factor(kmean_10),
+    kmean_5 = as.factor(kmean_5)
+  ) 
+
+# seperately plot the cluster methods and save them
+km_5_plt <- plot_ly(df, x = ~x, y = ~y, type = "scatter", color = ~movie_review$kmean_5) %>%
+  layout(annotations = list(text = "5 k-Means",showarrow = F))
+km_10_plt <- plot_ly(df, x = ~x, y = ~y, type = "scatter", color = ~movie_review$kmean_10) %>%
+  layout(annotations = list(text = "10 k-Means",showarrow = F))
+gmm_5_plt <-plot_ly(df, x = ~x, y = ~y, type = "scatter", color = ~movie_review$gmm_5) %>%
+  layout(annotations = list(text = "5 GMM",showarrow = F))
+gmm_10_plt <-plot_ly(df, x = ~x, y = ~y, type = "scatter", color = ~movie_review$gmm_10) %>%
+  layout(annotations = list(text = "10 GMM",showarrow = F))
+
+# plot the cluster methods in one grid
+fig_clusters <- subplot(km_5_plt, km_10_plt, gmm_5_plt, gmm_10_plt,  nrows = 2) %>% 
+  layout(title = 'Umap visuzalization of movie reviews with clusters', 
+         showlegend=FALSE)
+fig_clusters
+
+
+# reshape dataframe to plot clusters together
+reshaped_movie_review <- movie_review %>% 
+  pivot_longer(cols = kmean_5:gmm_10,
+               names_to = 'cluster_method', 
+               values_to = 'cluster')
+
+# plot the cluster size of each cluster method
+ggplot(reshaped_movie_review, aes(x = cluster)) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~ cluster_method) +
+  labs(title = "Cluster size by Clustering Method",
+       x = "Cluster",
+       y = "Count") +
+  theme_minimal() +
+  scale_y_continuous(trans='sqrt')
+
+
+```
+The clusters of kMeans are as expected almost evenly distributed. This is not the case with GMM. 
+GMM 5 has three dominant clusters from which two are intertwined. The last cluster is at the lower edge of the cluster. 
+GMM 10 has 5 clusters that are visible and 5 that are assigned to a very few points. This is best visible in the distribution plot. 
+Furthermore, the GMMs do not have a equal size of the clusters. This represents a intuitively better clustering. 
+The latter remains to be seen. The stability, similarity, and interpretablity need to be checked. 
+
+## Evaluation 
+Davies-Bouldin's index - measure of cluster separation
+
+"The Davies-Bouldin Index is a validation metric that is used to evaluate clustering models. It is calculated as the average similarity measure of each cluster with the cluster most similar to it. In this context, similarity is defined as the ratio between inter-cluster and intra-cluster distances. As such, this index ranks well-separated clusters with less dispersion as having a better score." link: https://www.geeksforgeeks.org/davies-bouldin-index/
+
+GMM 10 performes by far the best. 
+
+As we have seen in the previous data points distribution within the GMM clusters: some clusters contain very few data points. Therefore, the inter-cluster ratio will be very high for these clustering methods. To counter this bias, the "periphery" clusters in GMM will be assigned the cluster misc (0). The clusters with and without periphery reassignment will be evaluate Davies-Bouldin's index.  
+
+```{r}
+#| label: Davies-Bouldin's index
+#| warning: false
+
+library(clusterSim)
+DB.index <- function(clusters){
+  ind <- index.DB(review_embeddings, as.numeric(clusters), d=NULL, centrotypes="centroids", p=2, q=2)
+  return(ind$DB)
+}
+
+print("Davies-Bouldin's index")
+paste('Kmeans 5:', DB.index(clusters = movie_review$kmean_5))
+paste('Kmeans 10:', DB.index(clusters = movie_review$kmean_10))
+paste('GMM 5:', DB.index(clusters = movie_review$gmm_5))
+paste('GMM 10:', DB.index(clusters = movie_review$gmm_10))
+
+# reassign periphery clusters in GMM
+# The clusters from GMM 5 in the periphery: cluster 5
+# The clusters from GMM 10 in the periphery: cluster 6 and 8 to 10
+movie_review <- movie_review %>%  
+  mutate(gmm_5_f = ifelse(gmm_5 %in% c(1:4), gmm_5, 0),
+         gmm_10_f = ifelse(gmm_10 %in% c(1:5, 6), gmm_10, 0))
+
+print()
+print("Davies-Bouldin's index filtered")
+paste('Kmeans 5:', DB.index(clusters = movie_review$kmean_5))
+paste('Kmeans 10:', DB.index(clusters = movie_review$kmean_10))
+paste('GMM 5:', DB.index(clusters = movie_review$gmm_5_f))
+paste('GMM 10:', DB.index(clusters = movie_review$gmm_10_f))
+
+```
+Based on the Davies-Bouldin's index, the clusters of GMM 10 has the lowest score with and without periphery reassignment. This indicates a better cluster seperation. 
+
+
+How stable are the clusters: 
+
+```{r}
+#| label: bootstrap stability 
+#| warning: False
+library(fpc)
+
+# Perform a bootstrap stability test on the clustering methods
+boot_k5 <- clusterboot(review_embeddings, B = 100, clustermethod = kmeansCBI, k = 5, 
+                      count = FALSE)
+boot_k10 <- clusterboot(review_embeddings, B = 100, clustermethod = kmeansCBI, k = 10, 
+                      count = FALSE)
+
+# the iterations are very slow with Mclust thus we use very few iterations
+boot_g5 <- clusterboot(data = review_embeddings, B = 3, clustermethod = noisemclustCBI, k = 5,
+                    count = FALSE, multipleboot=FALSE)
+
+boot_g10 <- clusterboot(data = review_embeddings, B = 3, clustermethod = noisemclustCBI, k = 10,
+                      count = FALSE, multipleboot=FALSE)
+
+print("Bootstrap Stability")
+paste('Kmeans 5:', boot_k5$bootmean)
+paste('Kmeans 10:', boot_k10$bootmean)
+paste('GMM 5:', boot_g5$bootmean)
+paste('GMM 10:', boot_g10$bootmean)
+
+```
+## Interpretation 
+The interpretation of the clusters can be performed by alining the clusters with the sentiment of an review. 
+This sentiment is positive or negative (1, 0). Intuitively, reviews with positive commentary with cluster together and viseversa. 
+```{r}
+#| label: Sentiment correlation
+#| warning: false
+
+# plot the sentiment analysis against the clusters
+plot_ly(df, x = ~x, y = ~y, type = "scatter", color = ~movie_review$sentiment) %>%
+  layout(title = "Sentiment of Reviews")
+
+# plot the overlap between sentiment and the four clusters methods
+ggplot(reshaped_movie_review, aes(x = cluster, fill = sentiment)) +
+  geom_bar(position = "stack") +
+  facet_wrap(~ cluster_method) +
+  labs(title = "Sentiment Distribution per Clustering Method",
+       x = "Cluster",
+       y = "Count") +
+  theme_minimal() +
+  scale_y_continuous(trans='sqrt')
+
+```
+The hypothesis of equal sentiment with clustering similarity is rejected. The clusters show approximately an even distribution of sentiments, accoss the different clusterings methods. 
+
+```{r}
+par(mfrow = c(2, 3))
+
+for (cluster in unique(movie_review$gmm_10_f)) {
+  movie_review %>% 
+    filter(gmm_10_f == cluster) %$% 
+    with(wordcloud(clean, 
+                           min.freq = 10, 
+                           max.words = 20, 
+                           random.order = FALSE,
+                           colors = brewer.pal(8, "Dark2")), n)
+}
+
+title( "Clusters GMM 10", outer = T)
+dev.off() 
+
+
+```
+The meaning of the major clusters in GMM 10 is very hard to distinguishes based on most frequent words. 
+
+```{r}
+#| label: table example
+data.frame(
+  model       = c("clustering model 1", "clustering model 2"),
+  performance = c(1.2, 1.8),
+  other       = c(0.5, 0.3),
+  notes       = c("Some note", "another note")
+)
+```
+
+Topic modeling may perform badly (ex overfitting) when used on short texts. Which is the case here. https://lazarinastoy.com/topic-modelling-limitations-short-text/ 
+
+
+# Team member contributions
+
+Write down what each team member contributed to the project.
+
+- Author One: a, b, c
+- Author Two: b, c, d
+- Author Three: a, b, d
