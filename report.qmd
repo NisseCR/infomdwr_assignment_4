@@ -33,13 +33,17 @@ data("movie_review")
 # Number of reviews
 rows <- nrow(movie_review)
 
-# TODO: Style histogram
 movie_review %>% 
   mutate(length = str_count(review)) %>% 
   ggplot(aes(x = length)) +
-  geom_histogram(bins = 50) +
+  geom_histogram(fill = "steelblue", color = "black", alpha = 0.8, bins = 50) +
   labs(x = "Number of words",
-       y = "Frequency")
+       y = "Frequency") + 
+  theme_minimal() +
+  theme(
+    panel.grid.major = element_line(size = 0.5, linetype = 'dashed', color = 'gray'),
+    panel.grid.minor = element_blank()
+  )
 ```
 
 The data consists of `r rows` reviews of various movies. The histogram shows the distribution of their lengths. Most reviews seem to be on the shorter side, with less than 2500 words, but the distribution is majorly skewed. Upon further inspection, there seem to be a few data points that have such a big length, they don't show up on the histogram. One of these datapoints is the longest review, that has a length of 13708 words. Overall, reviews also don't appear to be shorter than roughly 1000 words. 
