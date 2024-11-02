@@ -1,3 +1,21 @@
+---
+title: "Assignment 4: Text clustering"
+author: 
+  - Nisse Hermsen
+  - Isabelle de Wolf
+  - Sara Sakhi
+  - Celis Tittse
+  - Agnieszka Kubica
+date: last-modified
+format:
+  html:
+    toc: true
+    self-contained: true
+    code-fold: true
+    df-print: kable
+---
+
+
 
 ```{r}
 #| label: R packages
@@ -77,16 +95,16 @@ Describe text pre-processing steps you have used (approx. one or two paragraphs)
 preprocess <- function(review){
   # Cast all strings to lowercase
   review <- tolower(review)
-  
-  #Stem and lemmatize
-  review <- lemmatize_strings(review)
-  review <- stemDocument(review)
-  
-   # Remove punctuation, numbers, and extra whitespace
+
+  # Remove punctuation, numbers, and extra whitespace
   review <- gsub("[[:punct:]]", "", review) 
   review <- gsub("[0-9]", "", review)       
   review <- gsub("\\s+", " ", review)        
-  review <- str_squish(review)                    
+  review <- str_squish(review)   
+    
+  #Stem and lemmatize
+  review <- lemmatize_strings(review)
+  review <- stemDocument(review)
   
   # Remove stopwords and custom words
   custom_stopwords <- c(stopwords("english"), "movie", "film")
@@ -119,6 +137,7 @@ vocabulary <- create_vocabulary(iterator) %>%
 vectorizer <- vocab_vectorizer(vocabulary)
 termoc_matrix <- create_tcm(iterator, vectorizer, skip_grams_window = 5)
 ```
+
 
 ```{r}
 #| label: embedding_model
@@ -154,10 +173,23 @@ movie_review <- movie_review %>%
   unnest_wider(average_embedding, names_sep = "_")
 ```
 
-
 # Text clustering
 
 Briefly describe which models you compare to perform clustering. (approx. two or three paragraphs)
+
+The movie reviews will be clustered with two different methods: k-means and Gaussian mixture models (GMM). 
+The former performs a hard clustering with 5 and 10 clusters. The point in the cluster will be assigned
+k points at random. The mean of these clusters will be calculated and the points will be reassigned to 
+the clusters which is closest to the calculated mean. This will result in approximately even area within the clusters. 
+Therefore, it works with spherical shaped data, which we do, but it is sensitive to outliers. The data has a few outliers. 
+However, it is worthwhile performing k-means clustering to get equivalent clusters.
+
+On the other hand, the GMM is another approach to cluster the data. This method assumes that the data is the sum of 
+multiple Gaussian distributions. It is therefore considered the more elaborate version of K-means. This methods allows 
+different sizes of clusters, more than K-means and it used to deal with multidimensional data, which suits this dataset. 
+However, this could lead to isolated clusters with but a few points in them. 
+
+These methods have their up and down sides. Thus it is necessary to evaluate the distributions of the clusters, their coherency, and their stability. 
 
 ```{r}
 #| label: kmean_clustering
@@ -229,32 +261,69 @@ df  <- data.frame(word = rownames(review_embeddings),
                   x = vizualization$layout[, 1], y = vizualization$layout[, 2], 
                   stringsAsFactors = FALSE)
 
-plot_ly(df, x = ~x, y = ~y, type = "scatter", color = ~movie_review$kmean_5) %>%
-  layout(title = "Umap visuzalization of movie reviews with 5 kmeans clusters")
-plot_ly(df, x = ~x, y = ~y, type = "scatter", color = ~movie_review$kmean_10) %>%
-  layout(title = "Umap visuzalization of movie reviews with 10 kmeans clusters")
-plot_ly(df, x = ~x, y = ~y, type = "scatter", color = ~movie_review$gmm_10) %>%
-  layout(title = "Umap visuzalization of movie reviews with 5 gmm clusters")
-plot_ly(df, x = ~x, y = ~y, type = "scatter", color = ~movie_review$gmm_5) %>%
-  layout(title = "Umap visuzalization of movie reviews with 10 kmeans clusters")
-
+# change the class types of sentiment, and kmeans clusters
 movie_review <- movie_review %>%
   mutate(
-    sentiment = as.factor(sentiment)
+    sentiment = as.factor(sentiment),
+    kmean_10 = as.factor(kmean_10),
+    kmean_5 = as.factor(kmean_5)
   ) 
-plot_ly(df, x = ~x, y = ~y, type = "scatter", color = ~movie_review$sentiment) %>%
-  layout(title = "Sentiment of Reviews")
+
+# seperately plot the cluster methods and save them
+km_5_plt <- plot_ly(df, x = ~x, y = ~y, type = "scatter", color = ~movie_review$kmean_5) %>%
+  layout(annotations = list(text = "5 k-Means",showarrow = F))
+km_10_plt <- plot_ly(df, x = ~x, y = ~y, type = "scatter", color = ~movie_review$kmean_10) %>%
+  layout(annotations = list(text = "10 k-Means",showarrow = F))
+gmm_5_plt <-plot_ly(df, x = ~x, y = ~y, type = "scatter", color = ~movie_review$gmm_5) %>%
+  layout(annotations = list(text = "5 GMM",showarrow = F))
+gmm_10_plt <-plot_ly(df, x = ~x, y = ~y, type = "scatter", color = ~movie_review$gmm_10) %>%
+  layout(annotations = list(text = "10 GMM",showarrow = F))
+
+# plot the cluster methods in one grid
+fig_clusters <- subplot(km_5_plt, km_10_plt, gmm_5_plt, gmm_10_plt,  nrows = 2) %>% 
+  layout(title = 'Umap visuzalization of movie reviews with clusters', 
+         showlegend=FALSE)
+fig_clusters
+
+
+# reshape dataframe to plot clusters together
+reshaped_movie_review <- movie_review %>% 
+  pivot_longer(cols = kmean_5:gmm_10,
+               names_to = 'cluster_method', 
+               values_to = 'cluster')
+
+# plot the cluster size of each cluster method
+ggplot(reshaped_movie_review, aes(x = cluster)) +
+  geom_bar(position = "dodge") +
+  facet_wrap(~ cluster_method) +
+  labs(title = "Cluster size by Clustering Method",
+       x = "Cluster",
+       y = "Count") +
+  theme_minimal() +
+  scale_y_continuous(trans='sqrt')
+
+
 ```
 
+The clusters of kMeans are as expected almost evenly distributed. This is not the case with GMM. 
+GMM 5 has three dominant clusters from which two are intertwined. The last cluster is at the lower edge of the cluster. 
+GMM 10 has 5 clusters that are visible and 5 that are assigned to a very few points. This is best visible in the distribution plot. 
+Furthermore, the GMMs do not have a equal size of the clusters. This represents a intuitively better clustering. 
+The latter remains to be seen. The stability, similarity, and interpretablity need to be checked. 
+
+
+
+## Evaluation 
 Davies-Bouldin's index - measure of cluster separation
 
 "The Davies-Bouldin Index is a validation metric that is used to evaluate clustering models. It is calculated as the average similarity measure of each cluster with the cluster most similar to it. In this context, similarity is defined as the ratio between inter-cluster and intra-cluster distances. As such, this index ranks well-separated clusters with less dispersion as having a better score." link: https://www.geeksforgeeks.org/davies-bouldin-index/
 
-GMM 5 performes by far the best. 
+
+As we have seen in the previous data points distribution within the GMM clusters: some clusters contain very few data points. Therefore, the inter-cluster ratio will be very high for these clustering methods. To counter this bias, the "periphery" clusters in GMM will be assigned the cluster misc (0). The clusters with and without periphery reassignment will be evaluate Davies-Bouldin's index.  
 
 ```{r}
 #| label: Davies-Bouldin's index
-#| #| warning: false
+#| warning: false
 
 library(clusterSim)
 DB.index <- function(clusters){
@@ -262,39 +331,103 @@ DB.index <- function(clusters){
   return(ind$DB)
 }
 
-DB.index(clusters = movie_review$kmean_5)
-DB.index(clusters = movie_review$kmean_10)
-DB.index(clusters = movie_review$gmm_5)
-DB.index(clusters = movie_review$gmm_10)
+print("Davies-Bouldin's index")
+paste('Kmeans 5:', DB.index(clusters = movie_review$kmean_5))
+paste('Kmeans 10:', DB.index(clusters = movie_review$kmean_10))
+paste('GMM 5:', DB.index(clusters = movie_review$gmm_5))
+paste('GMM 10:', DB.index(clusters = movie_review$gmm_10))
+
+# reassign periphery clusters in GMM
+# The clusters from GMM 5 in the periphery: cluster 5
+# The clusters from GMM 10 in the periphery: cluster 6 and 8 to 10
+movie_review <- movie_review %>%  
+  mutate(gmm_5_f = ifelse(gmm_5 %in% c(1:4), gmm_5, 0),
+         gmm_10_f = ifelse(gmm_10 %in% c(1:5, 6), gmm_10, 0))
+
+print("Davies-Bouldin's index filtered")
+paste('Kmeans 5:', DB.index(clusters = movie_review$kmean_5))
+paste('Kmeans 10:', DB.index(clusters = movie_review$kmean_10))
+paste('GMM 5:', DB.index(clusters = movie_review$gmm_5_f))
+paste('GMM 10:', DB.index(clusters = movie_review$gmm_10_f))
 
 ```
+Based on the Davies-Bouldin's index, the clusters of GMM 10 has the lowest score with and without periphery reassignment. This indicates a better cluster seperation. 
 
 
-
- 
 How stable are the clusters: 
 
 ```{r}
 #| label: bootstrap stability 
+#| warning: False
 library(fpc)
+
+# Perform a bootstrap stability test on the clustering methods
 boot_k5 <- clusterboot(review_embeddings, B = 100, clustermethod = kmeansCBI, k = 5, 
                       count = FALSE)
 boot_k10 <- clusterboot(review_embeddings, B = 100, clustermethod = kmeansCBI, k = 10, 
                       count = FALSE)
 
-# TODO: figure out how to run this for Mclust, the method is correct accrding to what I found 
-#boot_g5 <- clusterboot(review_embeddings, B = 100, clustermethod = mclustBIC, k = 5, 
-#                      count = FALSE, multipleboot=FALSE)
+# the iterations are very slow with Mclust thus we use very few iterations
+boot_g5 <- clusterboot(data = review_embeddings, B = 3, clustermethod = noisemclustCBI, k = 5,
+                    count = FALSE, multipleboot=FALSE)
 
-#boot_g10<- clusterboot(review_embeddings, B = 100, clustermethod = mclustBIC, k = 5, 
-#                      count = FALSE, multipleboot=FALSE)
+boot_g10 <- clusterboot(data = review_embeddings, B = 3, clustermethod = noisemclustCBI, k = 10,
+                      count = FALSE, multipleboot=FALSE)
 
-boot_k5$bootmean
+print("Bootstrap Stability")
+paste('Kmeans 5:', boot_k5$bootmean)
+paste('Kmeans 10:', boot_k10$bootmean)
+paste('GMM 5:', boot_g5$bootmean)
+paste('GMM 10:', boot_g10$bootmean)
+
 ```
 
+## Interpretation 
+
+The interpretation of the clusters can be performed by alining the clusters with the sentiment of an review. 
+This sentiment is positive or negative (1, 0). Intuitively, reviews with positive commentary with cluster together and viseversa. 
+
+```{r}
+#| label: Sentiment correlation
+#| warning: false
+
+# plot the sentiment analysis against the clusters
+plot_ly(df, x = ~x, y = ~y, type = "scatter", color = ~movie_review$sentiment) %>%
+  layout(title = "Sentiment of Reviews")
+
+# plot the overlap between sentiment and the four clusters methods
+ggplot(reshaped_movie_review, aes(x = cluster, fill = sentiment)) +
+  geom_bar(position = "stack") +
+  facet_wrap(~ cluster_method) +
+  labs(title = "Sentiment Distribution per Clustering Method",
+       x = "Cluster",
+       y = "Count") +
+  theme_minimal() +
+  scale_y_continuous(trans='sqrt')
+
+```
+
+The hypothesis of equal sentiment with clustering similarity is rejected. The clusters show approximately an even distribution of sentiments, accoss the different clusterings methods. 
+
+```{r}
+par(mfrow = c(2, 3))
+
+for (cluster in unique(movie_review$gmm_10_f)) {
+  movie_review %>% 
+    filter(gmm_10_f == cluster) %$% 
+    with(wordcloud(clean, 
+                           min.freq = 10, 
+                           max.words = 20, 
+                           random.order = FALSE,
+                           colors = brewer.pal(8, "Dark2")), n)
+}
+
+title( "Clusters GMM 10", outer = T)
+dev.off() 
 
 
-
+```
+The meaning of the major clusters in GMM 10 is very hard to distinguishes based on most frequent words. 
 
 ```{r}
 #| label: table example
