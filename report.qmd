@@ -86,7 +86,7 @@ In the word cloud stop words like "the" and "also" are over represented, suggest
 
 # Text pre-processing
 
-Describe text pre-processing steps you have used (approx. one or two paragraphs)
+For pre-processing, the reviews are converted to lowercase to ensure consistency in word comparison. Next, whitespaces, punctuation, and numbers are removed. The reviews are then lemmatized to reduce words to their root forms; for example, “changed” becomes “change.” After lemmatization, stemming is applied to strip word suffixes, so a word like “generous” is reduced to “gener.” Finally, stopwords are removed from the text. These include common English words such as “are” and “I,” along with custom stopwords identified during EDA, like “movie” and “film.” 
 
 ```{r}
 #| label: pre-processing
@@ -117,9 +117,11 @@ movie_review$clean <- preprocess(movie_review$review)
 ```
 
 
-# Text representaion
+# Text representation 
 
-Briefly describe your text representation method. (approx. one or two paragraphs)
+The words in the reviews will be represented as word embeddings. To do this, a global vector (GloVe) model is used. GloVe is a learning algorithm that is trained on a word co-occurrence matrix of the existing corpus. With this co-occurrence matrix, word embedding for each word in the corpus can be obtained. 
+
+To create these word embeddings, the reviews are first tokenized. These tokens form a vocabulary, with words occurring less than five times filtered out. Using this vocabulary, a term co-occurrence matrix is created, which serves as input for training the GloVe model. The model then produces 50-dimensional word embeddings. An average embedding for each review is calculated by summing up the embeddings of all words in that review and averaging them. These review embeddings are then used as input for clustering models. 
 
 ```{r}
 #| label: tokinzation
