@@ -234,13 +234,6 @@ movie_review$gmm_10 <- as.factor(gmm_10$classification)
 
 Describe how you compare the methods and why. (approx. two or three paragraphs)
 
-- bootstrap stability for GMM - how to do it
-- add Silhouette indecies for each
-
-- present all indicies in a table
-- describe the table 
-
-
 The models have been evaluated through visual inspection and with the use of various internal validation methods. 
 
 ## Visual inspection of clusters
@@ -463,7 +456,6 @@ data.frame(
 )
 ```
 
-Topic modeling may perform badly (ex overfitting) when used on short texts. Which is the case here. https://lazarinastoy.com/topic-modelling-limitations-short-text/ 
 
 
 # Team member contributions
