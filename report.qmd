@@ -229,12 +229,8 @@ movie_review$gmm_10 <- as.factor(gmm_10$classification)
 
 # Evaluation & model comparison
 
-Describe how you compare the methods and why. (approx. two or three paragraphs)
 
-TODO: 
-- Visualization: gg grid the plots, so they print nicer
-- Visualization: change the colour pallete?
-- Visualization: describe what we can see (ex gmm10 clearly shows that only 4 big clusters were detected, which is possible since it allows for varying cluster sizes)
+Describe how you compare the methods and why. (approx. two or three paragraphs)
 
 - bootstrap stability for GMM - how to do it
 - add Silhouette indecies for each
@@ -243,7 +239,9 @@ TODO:
 - describe the table 
 
 
-Visual inspection of clusters: 
+The models have been evaluated through visual inspection and with the use of various internal validation methods. 
+
+## Visual inspection of clusters
 
 ```{r}
 #| label: Visual inspection with Umap
@@ -305,6 +303,13 @@ ggplot(reshaped_movie_review, aes(x = cluster)) +
 
 ```
 
+```{r}
+gmm_10_plt <-plot_ly(df, x = ~x, y = ~y, type = "scatter", color = ~movie_review$sentiment) %>%
+  layout(annotations = list(text = "10 GMM",showarrow = F))
+gmm_10_plt
+```
+
+
 The clusters of kMeans are as expected almost evenly distributed. This is not the case with GMM. 
 GMM 5 has three dominant clusters from which two are intertwined. The last cluster is at the lower edge of the cluster. 
 GMM 10 has 5 clusters that are visible and 5 that are assigned to a very few points. This is best visible in the distribution plot. 
@@ -319,7 +324,7 @@ Davies-Bouldin's index - measure of cluster separation
 "The Davies-Bouldin Index is a validation metric that is used to evaluate clustering models. It is calculated as the average similarity measure of each cluster with the cluster most similar to it. In this context, similarity is defined as the ratio between inter-cluster and intra-cluster distances. As such, this index ranks well-separated clusters with less dispersion as having a better score." link: https://www.geeksforgeeks.org/davies-bouldin-index/
 
 
-As we have seen in the previous data points distribution within the GMM clusters: some clusters contain very few data points. Therefore, the inter-cluster ratio will be very high for these clustering methods. To counter this bias, the "periphery" clusters in GMM will be assigned the cluster misc (0). The clusters with and without periphery reassignment will be evaluate Davies-Bouldin's index.  
+As seen in the visual inspection, some clusters contain very few data points when the GMM method is used. Because of that, the ratio of inter-cluster to intra-cluster distances of such cluster is very high for this clustering methods. Therefore,  measures that use this ration, such as the Davies-Bouldin's indexm may be biased towards GMM, without a meaningful reason. To counter this bias, the "periphery" clusters in GMM will be assigned the cluster misc (0). The clusters with and without periphery reassignment will be evaluate Davies-Bouldin's index.  
 
 ```{r}
 #| label: Davies-Bouldin's index
@@ -328,14 +333,8 @@ As we have seen in the previous data points distribution within the GMM clusters
 library(clusterSim)
 DB.index <- function(clusters){
   ind <- index.DB(review_embeddings, as.numeric(clusters), d=NULL, centrotypes="centroids", p=2, q=2)
-  return(ind$DB)
+  return(round(ind$DB, digits = 3))
 }
-
-print("Davies-Bouldin's index")
-paste('Kmeans 5:', DB.index(clusters = movie_review$kmean_5))
-paste('Kmeans 10:', DB.index(clusters = movie_review$kmean_10))
-paste('GMM 5:', DB.index(clusters = movie_review$gmm_5))
-paste('GMM 10:', DB.index(clusters = movie_review$gmm_10))
 
 # reassign periphery clusters in GMM
 # The clusters from GMM 5 in the periphery: cluster 5
@@ -344,11 +343,13 @@ movie_review <- movie_review %>%
   mutate(gmm_5_f = ifelse(gmm_5 %in% c(1:4), gmm_5, 0),
          gmm_10_f = ifelse(gmm_10 %in% c(1:5, 6), gmm_10, 0))
 
-print("Davies-Bouldin's index filtered")
-paste('Kmeans 5:', DB.index(clusters = movie_review$kmean_5))
-paste('Kmeans 10:', DB.index(clusters = movie_review$kmean_10))
-paste('GMM 5:', DB.index(clusters = movie_review$gmm_5_f))
-paste('GMM 10:', DB.index(clusters = movie_review$gmm_10_f))
+data.frame(
+  model       = c("Davies-Bouldin's index", "Davies-Bouldin's index filtered"),
+  Kmeans_5 = c(DB.index(clusters = movie_review$kmean_5), DB.index(clusters = movie_review$kmean_5)),
+  Kmeans_10 = c(DB.index(clusters = movie_review$kmean_10), DB.index(clusters = movie_review$kmean_10)),
+  GMM_5 = c(DB.index(clusters = movie_review$gmm_5), DB.index(clusters = movie_review$gmm_5_f)),
+  GMM_10 = c(DB.index(clusters = movie_review$gmm_10), DB.index(clusters = movie_review$gmm_10_f))
+)
 
 ```
 Based on the Davies-Bouldin's index, the clusters of GMM 10 has the lowest score with and without periphery reassignment. This indicates a better cluster seperation. 
@@ -368,19 +369,40 @@ boot_k10 <- clusterboot(review_embeddings, B = 100, clustermethod = kmeansCBI, k
                       count = FALSE)
 
 # the iterations are very slow with Mclust thus we use very few iterations
-boot_g5 <- clusterboot(data = review_embeddings, B = 3, clustermethod = noisemclustCBI, k = 5,
+boot_g5 <- clusterboot(data = review_embeddings, B = 5, clustermethod = noisemclustCBI, k = 5,
                     count = FALSE, multipleboot=FALSE)
 
-boot_g10 <- clusterboot(data = review_embeddings, B = 3, clustermethod = noisemclustCBI, k = 10,
+boot_g10 <- clusterboot(data = review_embeddings, B = 5, clustermethod = noisemclustCBI, k = 10,
                       count = FALSE, multipleboot=FALSE)
 
-print("Bootstrap Stability")
-paste('Kmeans 5:', boot_k5$bootmean)
-paste('Kmeans 10:', boot_k10$bootmean)
-paste('GMM 5:', boot_g5$bootmean)
-paste('GMM 10:', boot_g10$bootmean)
 
 ```
+
+
+```{r}
+library('rlist') 
+
+bootmeans <- list.append(boot_k5$bootmean, boot_k10$bootmean, boot_g5$bootmean, boot_g10$bootmean)
+methods <- list.append(rep("Kmeans 5", 5), rep("Kmeans 10", 10), rep("GMM 5", 5), rep("GMM 10", 10))
+means_data <- data.frame(bootmeans, as.factor(methods))
+
+ggplot(data = means_data, aes(x = bootmeans, y=methods))+
+  geom_violin()+ 
+  geom_jitter(height = 0, width = 0.1)+
+  theme_minimal() +
+  theme(
+    panel.grid.major = element_line(size = 0.5, linetype = 'dashed', color = 'gray'),
+    panel.grid.minor = element_blank()
+  )+
+  labs(title = "Bootstrap Stability Means of Clusters per Clustering Method",
+       x = "Bootstrap Stablitiy Means",
+       y = "Method of clustering")
+
+
+```
+Aga: I wrote this, but then I rerun the bootstrap to check if changing B to a higher number would change the outcome... And it did. So I need to rewrite this:
+
+The violin graph displays the average stability of each cluster per clustering method. Clusters achieved with GMM rather than kMeans are on average far more stable, that means resampling of data has far smaller impact on the final clusters. However, the difference between most stable and least stable cluster is far larger for GMM methods than for Kmeans, as reflected in the larger spread of the bootstrap means. This was to be expected after the finding that GMM has a few large and tiny clusters, while Kmeans clusters are of similar size, in the umap visualizations. 
 
 ## Interpretation 
 
