@@ -337,7 +337,7 @@ The latter remains to be seen. The stability, similarity, and interpretablity ne
 ### Davies-Bouldin index
 The Davies-Bouldin index scores clusters based on how well these clusters are separated and their dispersion, defined as the inter- and intra-cluster distances [@GeeksforGeeks_2023]. As such, a higher score will indicate a clustering method suitable for the dataset.
 
-As seen in the visual inspection, some clusters contain very few data points when the GMM method is used. Because of that, the ratio of inter-cluster to intra-cluster distances of such cluster is very high for this clustering methods. Therefore,  measures that use this ration, such as the Davies-Bouldin's index may be biased towards GMM, without a meaningful reason. To counter this bias, the "periphery" clusters in GMM will be assigned the cluster misc (0). The clusters with and without periphery reassignment will be evaluate Davies-Bouldin's index.  
+As seen in the visual inspection, some clusters contain very few data points when the GMM method is used. Because of that, the ratio of inter-cluster to intra-cluster distances of such cluster is very high for this clustering methods. Therefore,  measures that use this ratio, such as the Davies-Bouldin's index may be biased towards GMM, without a meaningful reason. To counter this bias, the "periphery" clusters in GMM will be assigned the cluster misc (0). The clusters with and without periphery reassignment will be evaluate Davies-Bouldin's index.  
 
 ```{r}
 #| label: "Davies-Bouldin's index"
@@ -480,29 +480,41 @@ ggplot(reshaped_movie_review, aes(x = cluster, fill = sentiment)) +
 
 ```
 
-The hypothesis of equal sentiment with clustering similarity is rejected. From the above, it is discerned that sentiment is not differently distributed among the clusters. Moreover, the UMAP representation of the data suggests there is no clear clustering such that sentiment would be distinguishible between said clusters—both positive and negative sentiments are evenly distributed amongst the clusters from all clustering methods.
+The hypothesis of equal sentiment with clustering similarity is rejected. From the above, it is discerned that sentiment is not differently distributed among the clusters. Moreover, the UMAP representation of the data suggests there is no clear clustering such that sentiment would be distinguishible between said clusters—both positive and negative sentiments are evenly distributed among the clusters from all clustering methods.
 
-As there seems to be no similarity between the clusters and their respective sentiment, the meaning of these clusters was investigated using a wordcloud. These are generated _per_ cluster.
+As there seems to be no similarity between the clusters and their respective sentiment, the meaning of these clusters was investigated using a wordcloud. These are generated _per_ cluster, and only for those with sufficient documents / reviews.
 
 ```{r}
 #| label: "Plot cluster meaning"
 #| code-summary: "Plot cluster meanings"
 #| warning: false
 
-par(mfrow = c(2, 3))
+clusters <- unique(movie_review$gmm_10_f) %>%
+  sort(decreasing = FALSE)
 
-for (cluster in unique(movie_review$gmm_10_f)) {
-  movie_review %>% 
-    filter(gmm_10_f == cluster) %$% 
-    with(wordcloud(clean, 
-                           min.freq = 10, 
-                           max.words = 20, 
-                           random.order = FALSE,
-                           colors = brewer.pal(8, "Dark2")), n)
+for (cluster in clusters) {
+  # Filter data for specific cluster
+  cluster_data <- movie_review %>% 
+    filter(gmm_10_f == cluster)
+  
+  cluster_n_points <- nrow(cluster_data)
+  
+  if (cluster_n_points > 100) {
+    # Create plot layout
+    layout(matrix(c(1, 2), nrow=2), heights=c(1, 4))
+    par(mar=rep(0, 4))
+    plot.new()
+    text(x=0.5, y=0.5, paste("Cluster", cluster, "(", cluster_n_points, " datapoints)"))
+    
+    # Create wordcloud
+    cluster_data %$%
+      with(wordcloud(clean, 
+                     min.freq = 10, 
+                     max.words = 20, 
+                     random.order = FALSE,
+                     colors = brewer.pal(8, "Dark2")), n)
+  }
 }
-
-title( "Clusters GMM 10", outer = T)
-# dev.off() 
 ```
 
 Based on the most frequent words within each cluster of the GMM 10 method, it is difficult to distinguish both their meaning and their difference in meaning compared to one another. Sentiment indicators such as "good", "bad" and "great" are prominent within most clusters, whilst common verbs such as "like" and "make" also make up the most frequent words. 
