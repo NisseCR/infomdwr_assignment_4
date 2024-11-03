@@ -13,6 +13,7 @@ format:
     self-contained: true
     code-fold: true
     df-print: kable
+bibliography: references.bib  
 ---
 
 # Introduction 
@@ -334,9 +335,7 @@ The latter remains to be seen. The stability, similarity, and interpretablity ne
 
 ## Evaluation 
 ### Davies-Bouldin index
-
-"The Davies-Bouldin Index is a validation metric that is used to evaluate clustering models. It is calculated as the average similarity measure of each cluster with the cluster most similar to it. In this context, similarity is defined as the ratio between inter-cluster and intra-cluster distances. As such, this index ranks well-separated clusters with less dispersion as having a better score." link: https://www.geeksforgeeks.org/davies-bouldin-index/
-
+The Davies-Bouldin index scores clusters based on how well these clusters are separated and their dispersion, defined as the inter- and intra-cluster distances [@GeeksforGeeks_2023]. As such, a higher score will indicate a clustering method suitable for the dataset.
 
 As seen in the visual inspection, some clusters contain very few data points when the GMM method is used. Because of that, the ratio of inter-cluster to intra-cluster distances of such cluster is very high for this clustering methods. Therefore,  measures that use this ration, such as the Davies-Bouldin's indexm may be biased towards GMM, without a meaningful reason. To counter this bias, the "periphery" clusters in GMM will be assigned the cluster misc (0). The clusters with and without periphery reassignment will be evaluate Davies-Bouldin's index.  
 
@@ -409,7 +408,7 @@ data.frame(
 )
 ```
 
-These scores are relatively low, suggesting that the clusters are not well-separated, and may reflect the inherent complexity and overlapping themes within movie reviews. Interestingly, the GMM approach yielded slightly higher scores than K-Means for both cluster settings, implying that GMM might be slightly better suited for this dataset. However, both models struggled to produce highly distinct clusters, indicating that additional tuning or alternative methods may be required to improve clarity in grouping similar reviews.
+These scores are relatively low, suggesting that the clusters are not well-separated, and may reflect the inherent complexity and overlapping themes within movie reviews. Interestingly, the GMM 10 approach yielded slightly higher scores than K-Means for both cluster settings, whilst also giving better results compared to GMM 5, implying that GMM 10 might be slightly better suited for this dataset. On the other hand, GMM with 5 cluusters scored the lowest. By looking at the earlier visual representation of the clustering, this is somewhat expected as the clusters seem to overlap with one another—more so than the other clustering methods. Whilst GMM 10 had the highest Silhouette index score, all models struggled to produce highly distinct clusters, indicating that additional tuning or alternative methods may be required to improve clarity in grouping similar reviews.
 
 ### Cluster stability
 
