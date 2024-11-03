@@ -15,6 +15,13 @@ format:
     df-print: kable
 ---
 
+# Introduction 
+
+This report explores the application of text clustering techniques on movie reviews from the Internet Movie Database (IMDB), a dataset consisting of 5000 reviews curated for sentiment analysis tasks. The primary objective of this analysis is to identify clusters within the reviews, grouping them based on similar themes or sentiments. Clustering text data poses unique challenges, requiring careful pre-processing and appropriate representation methods to capture meaningful patterns in unstructured text.
+
+To approach this task, we applied two clustering methods—K-Means and Gaussian Mixture Model (GMM)—with varying numbers of clusters. After thorough data pre-processing, including tokenization, lemmatization, and word embedding representation using Global Vectors (GloVe), each model was evaluated for its ability to form coherent and stable clusters. The models were assessed using internal validation metrics, such as the Silhouette score and Davies-Bouldin Index, as well as through bootstrap stability analysis to determine robustness.
+
+Through this report, we aim to provide insights into the comparative performance of these clustering techniques, examining their effectiveness in handling movie review data and the impact of clustering choices on sentiment separation. Our findings contribute to a better understanding of text clustering challenges and the practical considerations required when clustering sentiment-rich text data.
 
 
 ```{r}
@@ -456,12 +463,68 @@ data.frame(
 )
 ```
 
+```{r}
+#| label: Silhouette Index
+#| warning: false
+
+
+library(cluster)
+
+# Ensure cluster columns are numeric
+movie_review$kmean_5 <- as.numeric(movie_review$kmean_5)
+movie_review$kmean_10 <- as.numeric(movie_review$kmean_10)
+movie_review$gmm_5 <- as.numeric(movie_review$gmm_5)
+movie_review$gmm_10 <- as.numeric(movie_review$gmm_10)
+
+# Silhouette score for K-Means with 5 clusters
+kmeans_5_sil <- silhouette(movie_review$kmean_5, dist(review_embeddings))
+kmeans_5_sil_score <- mean(kmeans_5_sil[, 3])
+
+# Silhouette score for K-Means with 10 clusters
+kmeans_10_sil <- silhouette(movie_review$kmean_10, dist(review_embeddings))
+kmeans_10_sil_score <- mean(kmeans_10_sil[, 3])
+
+# Silhouette score for GMM with 5 clusters
+gmm_5_sil <- silhouette(movie_review$gmm_5, dist(review_embeddings))
+gmm_5_sil_score <- mean(gmm_5_sil[, 3])
+
+# Silhouette score for GMM with 10 clusters
+gmm_10_sil <- silhouette(movie_review$gmm_10, dist(review_embeddings))
+gmm_10_sil_score <- mean(gmm_10_sil[, 3])
+
+
+cat("Silhouette Scores:\n")
+cat("K-Means (5 clusters):", kmeans_5_sil_score, "\n")
+cat("K-Means (10 clusters):", kmeans_10_sil_score, "\n")
+cat("GMM (5 clusters):", gmm_5_sil_score, "\n")
+cat("GMM (10 clusters):", gmm_10_sil_score, "\n")
+```
+
+# Evaluation of clustering results Using the Silhouette Index
+
+The Silhouette index is a metric that assesses how well-separated clusters are in the embedding space. A higher Silhouette score, closer to 1, indicates well-defined clusters where data points are closer to their own cluster center than to any other cluster. Conversely, scores closer to 0 suggest that clusters overlap or are not clearly distinct, while negative scores indicate potential misclassification of points.
+
+For this analysis, we calculated the Silhouette scores for each clustering approach:
+
+K-Means with 5 clusters: 0.0599
+K-Means with 10 clusters: 0.0305
+GMM with 5 clusters: 0.0846
+GMM with 10 clusters: 0.0737
+These scores are relatively low, suggesting that the clusters are not well-separated, and may reflect the inherent complexity and overlapping themes within movie reviews. Interestingly, the GMM approach yielded slightly higher scores than K-Means for both cluster settings, implying that GMM might be slightly better suited for this dataset. However, both models struggled to produce highly distinct clusters, indicating that additional tuning or alternative methods may be required to improve clarity in grouping similar reviews.
+
+
+
+
+# Conclution 
+
+In conclusion, the GMM model with 10 clusters demonstrates the best performance in terms of stability (bootstrap means), separation (Davies-Bouldin Index), and slight improvements in the Silhouette score over K-Means. Although both models struggled with clear separation, GMM's robustness to data resampling and lower Davies-Bouldin score make it a more suitable choice for this text clustering task. These findings suggest that GMM could provide more reliable clusters for movie reviews, even though the inherent complexity of the dataset limits the clustering performance. Future work might explore additional pre-processing steps or advanced representation techniques to improve clustering distinctness.
 
 
 # Team member contributions
 
 Write down what each team member contributed to the project.
-
-- Author One: a, b, c
-- Author Two: b, c, d
-- Author Three: a, b, d
+  - Nisse Hermsen
+  - Isabelle de Wolf
+  - Sara Sakhi
+  - Celis Tittse
+  - Agnieszka Kubica
