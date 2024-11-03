@@ -16,6 +16,13 @@ format:
 bibliography: references.bib  
 ---
 
+```{css}
+#| echo: false
+p {
+  text-align: justify
+}
+```
+
 # Introduction 
 
 This report explores the application of text clustering techniques on movie reviews from the Internet Movie Database (IMDB), a dataset consisting of 5000 reviews curated for sentiment analysis tasks. The primary objective of this analysis is to identify clusters within the reviews, grouping them based on similar themes or sentiments. Clustering text data poses unique challenges, requiring careful pre-processing and appropriate representation methods to capture meaningful patterns in unstructured text.
@@ -450,9 +457,7 @@ ggplot(data = means_data, aes(x = bootmeans, y=methods))+
 
 ```
 
-Aga: I wrote this, but then I rerun the bootstrap to check if changing B to a higher number would change the outcome... And it did. So I need to rewrite this:
-
-The violin graph displays the average stability of each cluster per clustering method. Clusters achieved with GMM rather than kMeans are on average far more stable, that means resampling of data has far smaller impact on the final clusters. However, the difference between most stable and least stable cluster is far larger for GMM methods than for Kmeans, as reflected in the larger spread of the bootstrap means. This was to be expected after the finding that GMM has a few large and tiny clusters, while Kmeans clusters are of similar size, in the umap visualizations. 
+The violin graph displays the average stability of each cluster per clustering method. Clusters achieved with GMM rather than kMeans are on average far more stable, that means resampling of data has far smaller impact on the final clusters. However, the difference between most stable and least stable cluster is far larger for GMM methods than for Kmeans, as reflected in the larger spread of the bootstrap means. This was to be expected after the finding in the umap visualizations that GMM has a few large and a few tiny clusters, while Kmeans clusters are of similar size. The small clusters are more likely to be less stable simple due to a larger impact of an individual point in the creation of the cluster. Nevertheless, even with the small and unstable clusters, GM based clusters perform better in terms of stability. 
 
 ## Interpretation 
 
