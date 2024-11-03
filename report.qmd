@@ -337,7 +337,7 @@ The latter remains to be seen. The stability, similarity, and interpretablity ne
 ### Davies-Bouldin index
 The Davies-Bouldin index scores clusters based on how well these clusters are separated and their dispersion, defined as the inter- and intra-cluster distances [@GeeksforGeeks_2023]. As such, a higher score will indicate a clustering method suitable for the dataset.
 
-As seen in the visual inspection, some clusters contain very few data points when the GMM method is used. Because of that, the ratio of inter-cluster to intra-cluster distances of such cluster is very high for this clustering methods. Therefore,  measures that use this ration, such as the Davies-Bouldin's indexm may be biased towards GMM, without a meaningful reason. To counter this bias, the "periphery" clusters in GMM will be assigned the cluster misc (0). The clusters with and without periphery reassignment will be evaluate Davies-Bouldin's index.  
+As seen in the visual inspection, some clusters contain very few data points when the GMM method is used. Because of that, the ratio of inter-cluster to intra-cluster distances of such cluster is very high for this clustering methods. Therefore,  measures that use this ration, such as the Davies-Bouldin's index may be biased towards GMM, without a meaningful reason. To counter this bias, the "periphery" clusters in GMM will be assigned the cluster misc (0). The clusters with and without periphery reassignment will be evaluate Davies-Bouldin's index.  
 
 ```{r}
 #| label: "Davies-Bouldin's index"
@@ -412,8 +412,6 @@ These scores are relatively low, suggesting that the clusters are not well-separ
 
 ### Cluster stability
 
-How stable are the clusters: 
-
 ```{r}
 #| label: bootstrap stability 
 #| warning: False
@@ -464,6 +462,7 @@ This sentiment is positive or negative (1, 0). Intuitively, reviews with positiv
 ```{r}
 #| label: Sentiment correlation
 #| warning: false
+#| code-summary: "Plot sentiment similarity"
 
 # plot the sentiment analysis against the clusters
 plot_ly(df, x = ~x, y = ~y, type = "scatter", color = ~movie_review$sentiment) %>%
@@ -481,9 +480,15 @@ ggplot(reshaped_movie_review, aes(x = cluster, fill = sentiment)) +
 
 ```
 
-The hypothesis of equal sentiment with clustering similarity is rejected. The clusters show approximately an even distribution of sentiments, accoss the different clusterings methods. 
+The hypothesis of equal sentiment with clustering similarity is rejected. From the above, it is discerned that sentiment is not differently distributed among the clusters. Moreover, the UMAP representation of the data suggests there is no clear clustering such that sentiment would be distinguishible between said clusters—both positive and negative sentiments are evenly distributed amongst the clusters from all clustering methods.
+
+As there seems to be no similarity between the clusters and their respective sentiment, the meaning of these clusters was investigated using a wordcloud. These are generated _per_ cluster.
 
 ```{r}
+#| label: "Plot cluster meaning"
+#| code-summary: "Plot cluster meanings"
+#| warning: false
+
 par(mfrow = c(2, 3))
 
 for (cluster in unique(movie_review$gmm_10_f)) {
@@ -497,25 +502,10 @@ for (cluster in unique(movie_review$gmm_10_f)) {
 }
 
 title( "Clusters GMM 10", outer = T)
-dev.off() 
-
-
-```
-The meaning of the major clusters in GMM 10 is very hard to distinguishes based on most frequent words. 
-
-```{r}
-#| label: table example
-data.frame(
-  model       = c("clustering model 1", "clustering model 2"),
-  performance = c(1.2, 1.8),
-  other       = c(0.5, 0.3),
-  notes       = c("Some note", "another note")
-)
+# dev.off() 
 ```
 
-
-
-
+Based on the most frequent words within each cluster of the GMM 10 method, it is difficult to distinguish both their meaning and their difference in meaning compared to one another. Sentiment indicators such as "good", "bad" and "great" are prominent within most clusters, whilst common verbs such as "like" and "make" also make up the most frequent words. 
 
 
 # Conclusion 
