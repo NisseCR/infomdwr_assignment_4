@@ -166,7 +166,7 @@ termoc_matrix <- create_tcm(iterator, vectorizer, skip_grams_window = 5)
 ```
 
 
-```{r}
+```{r, results = 'hide'}
 #| label: embedding_model
 #| warning: false
 #| message: false
@@ -304,7 +304,7 @@ fig_clusters
 ```
 
 ```{r}
-#| label: gmm_clustering
+#| label: cluster_sizes
 #| warning: false
 #| code-summary: "Plot cluster sizes per method"
 # reshape dataframe to plot clusters together
