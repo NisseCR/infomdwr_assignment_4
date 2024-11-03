@@ -240,9 +240,13 @@ get_kmean_cluster <- function(data, k){
   return(kmeans_result)
 }
 
+set.seed(123)
+
 # Create clusters for k = 5
 kmean_5 <- get_kmean_cluster(review_embeddings, 5)
 movie_review$kmean_5 <- kmean_5$cluster
+
+set.seed(123)
 
 # Create clusters for k = 10
 kmean_10 <- get_kmean_cluster(review_embeddings, 10)
@@ -254,9 +258,13 @@ movie_review$kmean_10 <- kmean_10$cluster
 #| warning: false
 #| code-summary: "Create GMM clusters"
 
+set.seed(123)
+
 # Create gmm clusters with k = 5
 gmm_5 <- Mclust(review_embeddings, G = 5)
 movie_review$gmm_5 <- as.factor(gmm_5$classification)
+
+set.seed(123)
 
 # Create gmm clusters with k = 10
 gmm_10 <- Mclust(review_embeddings, G = 10)
@@ -351,6 +359,9 @@ As seen in the visual inspection, some clusters contain very few data points whe
 #| warning: false
 #| code-summary: "Create Davies-Bouldin index table"
 
+
+set.seed(123)
+
 DB.index <- function(clusters){
   ind <- index.DB(review_embeddings, as.numeric(clusters), d=NULL, centrotypes="centroids", p=2, q=2)
   return(round(ind$DB, digits = 3))
@@ -386,6 +397,8 @@ For this analysis, we calculated the Silhouette scores for each clustering appro
 #| warning: false
 #| code-summary: "Create Silhouette index table"
 
+set.seed(123)
+
 # Ensure cluster columns are numeric
 movie_review$kmean_5 <- as.numeric(movie_review$kmean_5)
 movie_review$kmean_10 <- as.numeric(movie_review$kmean_10)
@@ -415,7 +428,7 @@ data.frame(
 )
 ```
 
-These scores are relatively low, suggesting that the clusters are not well-separated, and may reflect the inherent complexity and overlapping themes within movie reviews. Interestingly, the GMM 10 approach yielded slightly higher scores than K-Means for both cluster settings, whilst also giving better results compared to GMM 5, implying that GMM 10 might be slightly better suited for this dataset. On the other hand, GMM with 5 cluusters scored the lowest. By looking at the earlier visual representation of the clustering, this is somewhat expected as the clusters seem to overlap with one another—more so than the other clustering methods. Whilst GMM 10 had the highest Silhouette index score, all models struggled to produce highly distinct clusters, indicating that additional tuning or alternative methods may be required to improve clarity in grouping similar reviews.
+These scores are relatively low, suggesting that the clusters are not well-separated, and may reflect the inherent complexity and overlapping themes within movie reviews. Interestingly, the GMM 10 approach yielded slightly higher scores than K-Means for both cluster settings, whilst also giving better results compared to GMM 5, implying that GMM 10 might be slightly better suited for this dataset. On the other hand, GMM with 5 clusters scored the lowest. By looking at the earlier visual representation of the clustering, this is somewhat expected as the clusters seem to overlap with one another—more so than the other clustering methods. Whilst GMM 10 had the highest Silhouette index score, all models struggled to produce highly distinct clusters, indicating that additional tuning or alternative methods may be required to improve clarity in grouping similar reviews.
 
 ### Cluster stability
 
@@ -423,6 +436,8 @@ These scores are relatively low, suggesting that the clusters are not well-separ
 #| label: bootstrap stability 
 #| warning: False
 #| code-summary: "Plot bootstrap stability per method"
+
+set.seed(123)
 
 # Perform a bootstrap stability test on the clustering methods
 boot_k5 <- clusterboot(review_embeddings, B = 100, clustermethod = kmeansCBI, k = 5, 
@@ -457,7 +472,7 @@ ggplot(data = means_data, aes(x = bootmeans, y=methods))+
 
 ```
 
-The violin graph displays the average stability of each cluster per clustering method. Clusters achieved with GMM rather than kMeans are on average far more stable, that means resampling of data has far smaller impact on the final clusters. However, the difference between most stable and least stable cluster is far larger for GMM methods than for Kmeans, as reflected in the larger spread of the bootstrap means. This was to be expected after the finding in the umap visualizations that GMM has a few large and a few tiny clusters, while Kmeans clusters are of similar size. The small clusters are more likely to be less stable simple due to a larger impact of an individual point in the creation of the cluster. Nevertheless, even with the small and unstable clusters, GM based clusters perform better in terms of stability. 
+The violin graph displays the average stability of each cluster per clustering method. Clusters achieved with kMeans rather than GMM are on average far more stable, that means resampling of data has far smaller impact on the final clusters. However, the difference between most stable and least stable cluster is far larger for GMM methods than for Kmeans, as reflected in the larger spread of the bootstrap means. This was to be expected after the finding in the umap visualizations that GMM has a few large and a few tiny clusters, while Kmeans clusters are of similar size. The small clusters are more likely to be less stable simple due to a larger impact of an individual point in the creation of the cluster. Thus, due to the small and unstable clusters, GM based clusters perform worse in terms of stability. 
 
 ## Interpretation 
 
@@ -531,10 +546,11 @@ In conclusion, the GMM model with 10 clusters demonstrates the best performance 
 
 
 # Team member contributions
+Contributions:  
 
-Write down what each team member contributed to the project.
-  - Nisse Hermsen
-  - Isabelle de Wolf
-  - Sara Sakhi
-  - Celis Tittse
-  - Agnieszka Kubica
+- Nisse Hermsen: codeblock labelling, code reformatting, finalise David-Bouldin text, extend sentiment reflection text, refactor wordcloud code for GMM 10 clusters
+- Isabelle de Wolf: EDA histogram code and description, pre-processing text and code, word embedding text and code, code implementation for k-means and GMM, codeblock labelling,   
+- Sara Sakhi: EDA, introduction description, silhouette index description and code, conclusion
+- Celis Tittse: Introduction, bootstrapping code, sentiment reflection, plot visuals, wordclouds for GMM 10 clusters, periphical clustering on coherence index
+- Agnieszka Kubica: EDA wordcloud and histogram description, code for visual inspection (UMAP plots, cluster size), code for Davies-Bouldin index, 
+code and text for bootstrap stability, text for interpretation
